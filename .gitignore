@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+server/.env
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.tradepulse-token-key
+server/.tradepulse-token-key
+.DS_Store
