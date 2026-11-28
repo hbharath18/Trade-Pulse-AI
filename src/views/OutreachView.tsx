@@ -10,8 +10,8 @@ import {Lead,GmailStatus,SenderSettings,OutreachRecord} from '../types';
 interface Attachment{filename:string;mimeType:string;data:string;size:number}
 interface Preview{to:string;subject:string;body:string}
 interface SenderResponse{settings:SenderSettings;gmail:GmailStatus;templates:{subject:string;body:string}}
-const defaultSubject='Supplier inquiry — {product} for {companyName}';
-const defaultBody='Hello,\n\nI\'m reaching out to ask whether {companyName} currently considers new suppliers of {product}. I noticed your business has a connection to {evidence}.\n\nIf this is relevant to your purchasing team, I would be happy to share further product details for your review.\n\nThank you for your time.';
+const defaultSubject='Wholesale Inquiry – Handcrafted Home Décor & Giftware';
+const defaultBody='Hello,\n\nI hope you’re doing well.\n\nI’m reaching out on behalf of OM Enterprise, where we specialize in handcrafted home décor and gifting products, including decorative lanterns, candle holders, and decorative jars.\n\nWe would love to explore the possibility of working with your business and would be happy to share our product collection for your review.\n\nWould you be interested in exploring potential wholesale opportunities with us?\n\nLooking forward to hearing from you.';
 
 /** Check if a template string still has unresolved {variable} tokens after merging */
 function hasUnresolvedTokens(text:string):boolean {

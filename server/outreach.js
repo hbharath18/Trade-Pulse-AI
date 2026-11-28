@@ -18,10 +18,12 @@ export const merge = (value,lead={}) => {
   if(unmapped) throw Object.assign(Error(`Unresolved template variable(s): ${unmapped.join(', ')}`), {status: 400});
   return merged;
 };
-export const defaultSubject = 'Supplier inquiry — {product} for {companyName}';
-export const defaultBody = 'Hello,\n\nI’m reaching out to ask whether {companyName} currently considers new suppliers of {product}. I noticed your business has a connection to {evidence}.\n\nIf this is relevant to your purchasing team, I would be happy to share further product details for your review.\n\nThank you for your time.';
-export function footer({businessName,postalAddress,gmail}) {
- return `\n\n---\nCommercial business inquiry${businessName?' — '+businessName:''}\n${postalAddress}\nTo stop receiving these inquiries, reply UNSUBSCRIBE to ${gmail}.`;
+export const defaultSubject = 'Wholesale Inquiry – Handcrafted Home Décor & Giftware';
+export const defaultBody = 'Hello,\n\nI hope you’re doing well.\n\nI’m reaching out on behalf of OM Enterprise, where we specialize in handcrafted home décor and gifting products, including decorative lanterns, candle holders, and decorative jars.\n\nWe would love to explore the possibility of working with your business and would be happy to share our product collection for your review.\n\nWould you be interested in exploring potential wholesale opportunities with us?\n\nLooking forward to hearing from you.';
+export function footer({senderName,businessName,postalAddress,gmail}) {
+ const sigName=senderName||'Bharath';
+ const sigCompany=businessName||'OM Enterprise';
+ return `\n\nSincerely,\n${sigName}\nExport & International Sourcing Coordinator\n${sigCompany}\n\n---\n${postalAddress}\nTo stop receiving these inquiries, reply UNSUBSCRIBE to ${gmail}.`;
 }
 export function composePreview(lead,subject,body,settings){
  return {to:lead.email,subject:merge(subject||defaultSubject,lead),body:merge(body||defaultBody,lead)+footer(settings)};
@@ -92,7 +94,7 @@ export function encodeMime({to,from,displayName,subject,body,messageId,attachmen
  const mainHtml=escHtml(footerSplit[0]).replace(/\r\n/g,'<br>');
  const footerHtml=footerSplit[1]?`<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0 12px;"><div style="font-size:12px;color:#64748b;line-height:1.5;">${escHtml(footerSplit[1]).replace(/\r\n/g,'<br>')}</div>`:'';
  const imgGalleryHtml=inlineImages.length
-  ?`<div style="margin:0 0 18px 0;">${inlineImages.map((img,idx)=>`<div style="margin-bottom:12px;"><img src="cid:img${idx}@tradepulse.local" alt="${escHtml(img.filename)}" style="max-width:560px;width:100%;height:auto;border-radius:8px;border:1px solid #e2e8f0;display:block;"/></div>`).join('')}</div>`
+  ?`<div style="margin:0 0 18px 0;">${inlineImages.map((img,idx)=>`<div style="margin-bottom:12px;"><img src="cid:img${idx}@tradepulse.local" alt="${escHtml(img.filename)}" style="max-width:340px;max-height:440px;width:auto;height:auto;border-radius:8px;border:1px solid #e2e8f0;display:block;"/></div>`).join('')}</div>`
   :'';
  const fullHtml=`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1e293b;margin:0;padding:0;">${imgGalleryHtml}<div>${mainHtml}</div>${footerHtml}</body></html>`;
  const mixBoundary='----=_TradePulse_Mix_'+crypto.randomBytes(12).toString('hex');
@@ -229,7 +231,7 @@ export function installOutreach(app,{db,getSetting,setSetting,readRecords,saveRe
   try{const lead=readRecords('lead').find(x=>x.id===req.body?.leadId);checkCompose(lead);
    const {subjectTemplate=defaultSubject,bodyTemplate=defaultBody}=req.body||{};
    if(typeof subjectTemplate!=='string'||typeof bodyTemplate!=='string'||subjectTemplate.length>300||bodyTemplate.length>7000)throw Object.assign(Error('Subject or message too long'),{status:400});
-   res.json(composePreview(lead,subjectTemplate,bodyTemplate,{businessName:settings().businessName,postalAddress:settings().postalAddress||'[Add a real sender postal address in Settings before sending]',gmail:smtpEmail()||'[Connect Gmail before sending]'}));
+   res.json(composePreview(lead,subjectTemplate,bodyTemplate,{senderName:settings().senderName,businessName:settings().businessName,postalAddress:settings().postalAddress||'[Add a real sender postal address in Settings before sending]',gmail:smtpEmail()||'[Connect Gmail before sending]'}));
   }catch(e){error(res,e)}
  });
  app.post('/api/outreach/ai-draft',async(req,res)=>{
@@ -246,8 +248,8 @@ export function installOutreach(app,{db,getSetting,setSetting,readRecords,saveRe
    }
    const categories=[...new Set(picked.map(x=>x.category||'Singing Bowls'))].join(' / ');
    const prompt=isBatch
-    ?`Write a formal, polished B2B wholesale supplier introduction email from an Indian export sourcing business to US retail/wholesale buyers of ${categories}.\nCRITICAL: You MUST use these exact template placeholders where appropriate so the system can merge each recipient's details: {companyName}, {city}, {state}, and {product}. Do NOT hardcode any single store name.\nFormat:\n- Formal business greeting ("Dear {companyName} Purchasing Team," or "Dear {companyName} Team,")\n- 2–3 concise, formal paragraphs introducing direct sourcing from Indian artisan workshops, reliable export packaging/dispatch, and offering to share our wholesale catalog and line sheet.\n- Formal closing ("Sincerely," or "Kind regards,") — do NOT include sender name, postal address, or unsubscribe text (those are appended automatically).\n- Do not claim they already purchase from us or invent certifications/pricing.\nSender Company: ${settings().businessName||'direct export sourcing'}\nLength: 90-135 words. Respond in JSON only: {"subject":"...","body":"..."}.`
-    :`Write a formal, polished B2B wholesale supplier introduction email from an Indian export sourcing business to a US buyer.\nFormat:\n- Formal business greeting ("Dear ${lead.companyName} Purchasing Team," or "Dear ${lead.companyName} Team,")\n- 2–3 concise, formal paragraphs referencing their business in ${lead.city}, ${lead.state} (${lead.buyerEvidence||'specialty retailer'}), introducing direct wholesale sourcing of ${lead.category||'Singing Bowls'} from Indian workshops, and offering a wholesale catalog/line sheet for their buyer review.\n- Formal closing ("Sincerely," or "Kind regards,") — do NOT include sender name, postal address, or unsubscribe text (those are appended automatically).\n- Do not claim they already purchase from us or invent certifications/pricing.\nTarget Buyer: ${lead.companyName}\nLocation: ${lead.city}, ${lead.state}\nProduct Category: ${lead.category||'Singing Bowls'}\nStore Context: ${lead.buyerEvidence||'specialty retailer'}\nSender Company: ${settings().businessName||'direct export sourcing'}\nLength: 90-135 words. Respond in JSON only: {"subject":"...","body":"..."}.`;
+    ?`Write a formal, polished B2B wholesale supplier introduction email from an Indian export sourcing business to US retail/wholesale buyers of ${categories}.\nCRITICAL: You MUST use these exact template placeholders where appropriate so the system can merge each recipient's details: {companyName}, {city}, {state}, and {product}. Do NOT hardcode any single store name.\nFormat:\n- Formal business greeting ("Dear {companyName} Purchasing Team," or "Dear {companyName} Team,")\n- 2–3 concise, formal paragraphs introducing direct sourcing from Indian artisan workshops, reliable export packaging/dispatch, and offering to share our wholesale catalog and line sheet.\n- Do NOT include a closing ("Sincerely,"), sender name, postal address, or unsubscribe text (the signature and compliance footer are appended automatically).\n- Do not claim they already purchase from us or invent certifications/pricing.\nSender Company: ${settings().businessName||'OM Enterprise'}\nLength: 90-135 words. Respond in JSON only: {"subject":"...","body":"..."}.`
+    :`Write a formal, polished B2B wholesale supplier introduction email from an Indian export sourcing business to a US buyer.\nFormat:\n- Formal business greeting ("Dear ${lead.companyName} Purchasing Team," or "Dear ${lead.companyName} Team,")\n- 2–3 concise, formal paragraphs referencing their business in ${lead.city}, ${lead.state} (${lead.buyerEvidence||'specialty retailer'}), introducing direct wholesale sourcing of ${lead.category||'Singing Bowls'} from Indian workshops, and offering a wholesale catalog/line sheet for their buyer review.\n- Do NOT include a closing ("Sincerely,"), sender name, postal address, or unsubscribe text (the signature and compliance footer are appended automatically).\n- Do not claim they already purchase from us or invent certifications/pricing.\nTarget Buyer: ${lead.companyName}\nLocation: ${lead.city}, ${lead.state}\nProduct Category: ${lead.category||'Singing Bowls'}\nStore Context: ${lead.buyerEvidence||'specialty retailer'}\nSender Company: ${settings().businessName||'OM Enterprise'}\nLength: 90-135 words. Respond in JSON only: {"subject":"...","body":"..."}.`;
    const model=process.env.OPENAI_MODEL||'gpt-5-mini';
    const resAi=await fetchImpl('https://api.openai.com/v1/chat/completions',{
     method:'POST',
@@ -316,7 +318,7 @@ export function installOutreach(app,{db,getSetting,setSetting,readRecords,saveRe
   const results=[];
   try{
    for(const lead of leads){
-    const preview=composePreview(lead,subjectTemplate,bodyTemplate,{businessName:sender.businessName,postalAddress:sender.postalAddress,gmail:gmailEmail});
+    const preview=composePreview(lead,subjectTemplate,bodyTemplate,{senderName:sender.senderName,businessName:sender.businessName,postalAddress:sender.postalAddress,gmail:gmailEmail});
     const id=crypto.randomUUID(),created=now();
     db.prepare('INSERT INTO outreach (id,lead_id,recipient,subject,body,created_at,day,status) VALUES (?,?,?,?,?,?,?,?)').run(id,lead.id,lead.email.toLowerCase(),preview.subject,preview.body,created,dayUTC(),'attempted');
     try{
